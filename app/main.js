@@ -88,6 +88,23 @@ async function main() {
           required: ["command"]
         }
       }
+    },
+    {
+      type: "function",
+      function: {
+        name: "List",
+        description: "To list files in a directory",
+        parameters: {
+          type: "object",
+          properties: {
+            dir_path: {
+              type: "string",
+              description: "The path of directory to list"
+            }
+          },
+          required: ["dir_path"]
+        }
+      }
     }
   ]
 
@@ -130,6 +147,12 @@ async function main() {
           result = `Error: ${err.message}`;
         }
       }
+      else if (toolCall.function.name === "List") {
+        const args = JSON.parse(toolCall.function.arguments);
+        const entries = fs.readdirSync(args.dir_path);
+        result = entries.join("\n");
+      }
+      
 
       messages.push({
         role: "tool",
