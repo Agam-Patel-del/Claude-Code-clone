@@ -23,51 +23,66 @@ async function main() {
     baseURL: baseURL,
   });
 
-  const response = await client.chat.completions.create({
-    model: "anthropic/claude-haiku-4.5",
-    messages: [{ role: "user", content: prompt }],
-    max_tokens: 512,
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "Read",
-          description: "Read and return the contents of the file",
-          parameters: {
-            type: "object",
-            properties: {
-              file_path: {
-                type: "string",
-                description: "The path to the file to read",
-              }
-            },
-            required: ["file_path"]
+  const messages = [
+    {
+      role: "user",
+      content: prompt
+    }
+  ];
+
+  while(1){
+    const response = await client.chat.completions.create({
+      model: "anthropic/claude-haiku-4.5",
+      messages,
+      max_tokens: 512,
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "Read",
+            description: "Read and return the contents of the file",
+            parameters: {
+              type: "object",
+              properties: {
+                file_path: {
+                  type: "string",
+                  description: "The path to the file to read",
+                }
+              },
+              required: ["file_path"]
+            }
           }
         }
-      }
-    ]
-  });
+      ]
+    });
 
-  if (!response.choices || response.choices.length === 0) {
-    throw new Error("no choices in response");
-  }
-
-  const choice = response.choices[0];
-  const message = choice.message;
-
-  if (message.tool_calls && message.tool_calls.length > 0) {
-    const toolCall = message.tool_calls[0];
-
-    if (toolCall.function.name === "Read") {
-      const args = JSON.parse(toolCall.function.arguments);
-      const contents = fs.readFileSync(args.file_path, "utf-8");
-      console.log(contents);
+    if (!response.choices || response.choices.length === 0) {
+      throw new Error("no choices in response");
     }
-  } else {
-    console.log(message.content);
-  }
 
-  // console.log(response.choices[0].message.content);
+    const choice = response.choices[0];
+    const message = choice.message;
+
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const toolCall = message.tool_calls[0];
+
+      messages.push(message);
+
+      let result;
+      if (toolCall.function.name === "Read") {
+        const args = JSON.parse(toolCall.function.arguments);
+        result = fs.readFileSync(args.file_path, "utf-8");
+      }
+      messages.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: message.content
+      })
+    } else {
+      console.log(message.content);
+      break;
+    }
+  }
 }
 
 main();
