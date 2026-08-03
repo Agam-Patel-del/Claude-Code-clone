@@ -2,6 +2,10 @@ import OpenAI from "openai";
 import dotenv from "dotenv";
 import fs, { read } from "fs";
 import { log } from "console";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 dotenv.config({ quiet: true });
 
@@ -67,6 +71,23 @@ async function main() {
           required: ["file_path", "content"]
         }
       }
+    },
+    {
+      type: "function",
+      function: {
+        name: "Bash",
+        description: "Execute the bash commands",
+        parameters: {
+          type: "object",
+          properties: {
+            command: {
+              type: "string",
+              description: "The bash command to execute"
+            },
+            required: ["command"]
+          }
+        }
+      }
     }
   ]
 
@@ -100,6 +121,16 @@ async function main() {
         fs.writeFileSync(args.file_path, args.content);
         result = `Successfully wrote the content in the file ${args.file_path}`;
       }
+      else if (toolCall.function.name === "Bash") {
+        const args = JSON.parse(toolCall.function.arguments);
+        try {
+          const { output, error } = await execAsync(args.command);
+          result = output || error || ("no-output");
+        } catch (err) {
+          result = `Error: ${err.message}`;
+        }
+      }
+
       messages.push({
         role: "tool",
         tool_call_id: toolCall.id,
