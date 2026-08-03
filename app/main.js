@@ -141,8 +141,8 @@ async function main() {
       else if (toolCall.function.name === "Bash") {
         const args = JSON.parse(toolCall.function.arguments);
         try {
-          const { output, error } = await execAsync(args.command);
-          result = output || error || ("no-output");
+          const { stdout, stderr } = await execAsync(args.command);
+          result = stdout || stderr || "(no output)";
         } catch (err) {
           result = `Error: ${err.message}`;
         }
@@ -151,6 +151,7 @@ async function main() {
         const args = JSON.parse(toolCall.function.arguments);
         const entries = fs.readdirSync(args.dir_path);
         result = entries.join("\n");
+        console.log(result);
       }
       
 
