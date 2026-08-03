@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import dotenv from "dotenv";
+import fs from "fs";
+import { log } from "console";
 
 dotenv.config({ quiet: true });
 
@@ -38,7 +40,8 @@ async function main() {
                 type: "string",
                 description: "The path to the file to read",
               }
-            }
+            },
+            required: ["file_path"]
           }
         }
       }
@@ -49,7 +52,22 @@ async function main() {
     throw new Error("no choices in response");
   }
 
-  console.log(response.choices[0].message.content);
+  const choice = response.choices[0];
+  const message = choice.message;
+
+  if (message.tool_calls && message.tool_calls.length > 0) {
+    const toolCall = message.tool_calls[0];
+
+    if (toolCall.function.name === "Read") {
+      const args = JSON.parse(toolCall.function.arguments);
+      const contents = fs.readFileSync(args.file_path, "utf-8");
+      console.log(contents);
+    }
+  } else {
+    console.log(message.content);
+  }
+
+  // console.log(response.choices[0].message.content);
 }
 
 main();
