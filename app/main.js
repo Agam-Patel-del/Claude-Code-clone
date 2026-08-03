@@ -53,7 +53,7 @@ async function main() {
         name: "Write",
         description: "Write contents in a file",
         parameters: {
-          type: "Object",
+          type: "object",
           properties: {
             file_path: {
               type: "string",
@@ -97,7 +97,8 @@ async function main() {
       }
       else if (toolCall.function.name === "Write") {
         const args = JSON.parse(toolCall.function.arguments);
-        result = fs.writeFileSync(args.file_path, args.content);
+        fs.writeFileSync(args.file_path, args.content);
+        result = `Successfully wrote the content in the file ${args.file_path}`;
       }
       messages.push({
         role: "tool",
