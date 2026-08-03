@@ -83,9 +83,9 @@ async function main() {
             command: {
               type: "string",
               description: "The bash command to execute"
-            },
-            required: ["command"]
-          }
+            }
+          },
+          required: ["command"]
         }
       }
     }
