@@ -76,7 +76,7 @@ async function main() {
       messages.push({
         role: "tool",
         tool_call_id: toolCall.id,
-        content: message.content
+        content: result
       })
     } else {
       console.log(message.content);
