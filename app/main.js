@@ -24,7 +24,25 @@ async function main() {
   const response = await client.chat.completions.create({
     model: "anthropic/claude-haiku-4.5",
     messages: [{ role: "user", content: prompt }],
-    max_tokens: 512
+    max_tokens: 512,
+    tools: [
+      {
+        type: "function",
+        function: {
+          name: "Read",
+          description: "Read and return the contents of the file",
+          parameters: {
+            type: "object",
+            properties: {
+              file_path: {
+                type: "string",
+                description: "The path to the file to read",
+              }
+            }
+          }
+        }
+      }
+    ]
   });
 
   if (!response.choices || response.choices.length === 0) {
