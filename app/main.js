@@ -4,6 +4,8 @@ import fs, { read } from "fs";
 import { log } from "console";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { tools } from "./tools.js";
+import { systemMessages } from "./systemMessages.js";
 
 const execAsync = promisify(exec);
 
@@ -28,91 +30,25 @@ async function main() {
   });
 
   const messages = [
+    ...systemMessages,
     {
       role: "user",
       content: prompt
     }
   ];
-  const tools = [
-    {
-      type: "function",
-      function: {
-        name: "Read",
-        description: "Read and return the contents of the file",
-        parameters: {
-          type: "object",
-          properties: {
-            file_path: {
-              type: "string",
-              description: "The path to the file to read",
-            }
-          },
-          required: ["file_path"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "Write",
-        description: "Write contents in a file",
-        parameters: {
-          type: "object",
-          properties: {
-            file_path: {
-              type: "string",
-              description: "The path of file in which it is to write"
-            },
-            content: {
-              type: "string",
-              description: "The content to write in a file"
-            }
-          },
-          required: ["file_path", "content"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "Bash",
-        description: "Execute the bash commands",
-        parameters: {
-          type: "object",
-          properties: {
-            command: {
-              type: "string",
-              description: "The bash command to execute"
-            }
-          },
-          required: ["command"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "List",
-        description: "To list files in a directory",
-        parameters: {
-          type: "object",
-          properties: {
-            dir_path: {
-              type: "string",
-              description: "The path of directory to list"
-            }
-          },
-          required: ["dir_path"]
-        }
-      }
-    }
-  ]
 
-  while (1) {
+  const MAX_CONSECUTIVE_ERRORS = process.env.MAX_CONSECUTIVE_ERRORS || 3;
+  const MAX_TOTAL_ITERATIONS = process.env.MAX_TOTAL_ITERATIONS || 20;
+
+  let consecutiveErrors = 0;
+  let totalIterations = 0;
+
+  while (totalIterations < MAX_TOTAL_ITERATIONS) {
+    totalIterations++;
     const response = await client.chat.completions.create({
-      model: "anthropic/claude-haiku-4.5",
+      model: "inclusionai/ling-3.0-flash:free",
       messages,
-      max_tokens: 512,
+      max_tokens: 32768,
       tools
     });
 
@@ -129,42 +65,77 @@ async function main() {
       messages.push(message);
 
       let result;
-      if (toolCall.function.name === "Read") {
-        const args = JSON.parse(toolCall.function.arguments);
-        result = fs.readFileSync(args.file_path, "utf-8");
-      }
-      else if (toolCall.function.name === "Write") {
-        const args = JSON.parse(toolCall.function.arguments);
-        fs.writeFileSync(args.file_path, args.content);
-        result = `Successfully wrote the content in the file ${args.file_path}`;
-      }
-      else if (toolCall.function.name === "Bash") {
-        const args = JSON.parse(toolCall.function.arguments);
-        try {
-          const { stdout, stderr } = await execAsync(args.command);
-          result = stdout || stderr || "(no output)";
-        } catch (err) {
-          result = `Error: ${err.message}`;
+      let isError = false;
+      try {
+        if (toolCall.function.name === "Read") {
+          const args = JSON.parse(toolCall.function.arguments);
+          try {
+            result = fs.readFileSync(args.file_path, "utf-8");
+          } catch (err) {
+            isError = true;
+            result = `Error reading file: ${err.message}`;
+          }
+        } else if (toolCall.function.name === "Write") {
+          const args = JSON.parse(toolCall.function.arguments);
+          try {
+            fs.writeFileSync(args.file_path, args.content);
+            result = `Successfully wrote the content in the file ${args.file_path}`;
+          } catch (err) {
+            isError = true;
+            result = `Error writing file: ${err.message}`;
+          }
+        } else if (toolCall.function.name === "Bash") {
+          const args = JSON.parse(toolCall.function.arguments);
+          try {
+            const { stdout, stderr } = await execAsync(args.command);
+            result = stdout || stderr || "(no output)";
+          } catch (err) {
+            isError = true;
+            result = `Error: ${err.message}`;
+          }
+        } else if (toolCall.function.name === "List") {
+          const args = JSON.parse(toolCall.function.arguments);
+          try {
+            const entries = fs.readdirSync(args.dir_path);
+            result = entries.join("\n");
+          } catch (err) {
+            isError = true;
+            result = `Error listing directory: ${err.message}`;
+          }
+        } else {
+          isError = true;
+          result = `Unknown tool: ${toolCall.function.name}`;
         }
+      } catch (err) {
+        isError = true;
+        result = `Error parsing tool arguments: ${err.message}`;
       }
-      else if (toolCall.function.name === "List") {
-        const args = JSON.parse(toolCall.function.arguments);
-        const entries = fs.readdirSync(args.dir_path);
-        result = entries.join("\n");
-        console.log(result);
+
+      if (isError) {
+        consecutiveErrors++;
+      } else {
+        consecutiveErrors = 0;
       }
-      
 
       messages.push({
         role: "tool",
         tool_call_id: toolCall.id,
         content: result
-      })
+      });
+
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        console.error(`Stopping: Exceeded maximum consecutive tool errors (${MAX_CONSECUTIVE_ERRORS}).`);
+        break;
+      }
     }
     else {
       console.log(message.content);
       break;
     }
+  }
+
+  if (totalIterations >= MAX_TOTAL_ITERATIONS) {
+    console.error(`Stopping: Exceeded maximum total iterations (${MAX_TOTAL_ITERATIONS}).`);
   }
 }
 

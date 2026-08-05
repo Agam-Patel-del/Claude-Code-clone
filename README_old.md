@@ -1,1 +1,0 @@
-agam randi madarchodd
