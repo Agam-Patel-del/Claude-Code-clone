@@ -1,4 +1,5 @@
 export const tools = [
+  // read
   {
     type: "function",
     function: {
@@ -16,6 +17,8 @@ export const tools = [
       }
     }
   },
+
+  // write
   {
     type: "function",
     function: {
@@ -37,6 +40,8 @@ export const tools = [
       }
     }
   },
+
+  // bash
   {
     type: "function",
     function: {
@@ -54,6 +59,8 @@ export const tools = [
       }
     }
   },
+
+  // list
   {
     type: "function",
     function: {
@@ -68,6 +75,56 @@ export const tools = [
           }
         },
         required: ["dir_path"]
+      }
+    }
+  },
+
+  // edit
+  {
+    type: "function",
+    function: {
+      name: "Edit",
+      description: "Edit a file by replacing an old string with a new string",
+      parameters: {
+        type: "object",
+        properties: {
+          file_path: {
+            type: "string",
+            description: "The path to the file to edit"
+          },
+          old_string: {
+            type: "string",
+            description: "The exact string to be replaced"
+          },
+          new_string: {
+            type: "string",
+            description: "The new string to replace the old string with"
+          }
+        },
+        required: ["file_path", "old_string", "new_string"]
+      }
+    }
+  },
+
+  // search
+  {
+    type: "function",
+    function: {
+      name: "Search",
+      description: "Search for a string or regex pattern in a directory",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The string or regex pattern to search for"
+          },
+          dir_path: {
+            type: "string",
+            description: "The directory path to search in (use '.' for current directory)"
+          }
+        },
+        required: ["query", "dir_path"]
       }
     }
   }
